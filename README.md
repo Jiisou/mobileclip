@@ -75,6 +75,19 @@ do
 done
 ```
 
+- results
+  ```
+  ~/.cache/huggingface/hub/
+  └── models--apple--MobileCLIP-S0/
+      ├── blobs/
+      ├── refs/
+      └── snapshots/<commit_hash>/
+          ├── config.json
+          ├── model.safetensors
+          └── README.md
+  ```
+
+
 To run inference, see example below,
 ```python
 import torch
