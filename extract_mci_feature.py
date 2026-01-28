@@ -3,35 +3,25 @@ import argparse
 import torch
 import cv2
 import numpy as np
-import open_clip
 from PIL import Image
 from tqdm import tqdm
-from mobileclip.modules.common.mobileone import reparameterize_model
+import mobileclip
 
 class VideoFeatureExtractor:
-    def __init__(self, model_name="MobileCLIP-S0", pretrained_path=None, device="cuda"):
+    def __init__(self, model_name="mobileclip_s0", pretrained_path=None, device="cuda"):
         self.device = device if torch.cuda.is_available() else "cpu"
         self.model_name = model_name
 
-        # Set model kwargs based on model name
-        model_kwargs = {}
-        if not (model_name.endswith("S3") or model_name.endswith("S4") or model_name.endswith("L-14")):
-            model_kwargs = {"image_mean": (0, 0, 0), "image_std": (1, 1, 1)}
-
-        # Load MobileCLIP model
+        # Load MobileCLIP model using mobileclip package
+        # Model names: mobileclip_s0, mobileclip_s1, mobileclip_s2, mobileclip_b
         if pretrained_path is None:
-            pretrained_path = "~/.cache/huggingface/hub/models--apple--MobileCLIP-S0/snapshots/71aa3e13dda93115871afbd017336535ba29886c/mobileclip_s0.pt"
+            pretrained_path = os.path.expanduser("~/.cache/huggingface/hub/models--apple--MobileCLIP-S0/snapshots/71aa3e13dda93115871afbd017336535ba29886c/mobileclip_s0.pt")
 
-        self.model, _, self.preprocess = open_clip.create_model_and_transforms(
-            model_name, pretrained=pretrained_path, **model_kwargs
+        self.model, _, self.preprocess = mobileclip.create_model_and_transforms(
+            model_name,
+            pretrained=pretrained_path,
+            device=self.device
         )
-
-        # Model needs to be in eval mode for inference because of batchnorm layers
-        self.model.eval()
-
-        # For inference/model exporting purposes, reparameterize first
-        self.model = reparameterize_model(self.model)
-        self.model = self.model.to(self.device)
 
     @torch.no_grad()
     def extract_window_features(self, frames):
@@ -102,8 +92,8 @@ def main():
     parser.add_argument("--video", type=str, help="Path to a single video file")
     parser.add_argument("--video_dir", type=str, help="Directory containing videos (recursive)")
     parser.add_argument("--output_dir", type=str, required=True, help="Directory to save .npy features")
-    parser.add_argument("--model_name", type=str, default="MobileCLIP-S0",
-                        help="MobileCLIP model name (default: MobileCLIP-S0)")
+    parser.add_argument("--model_name", type=str, default="mobileclip_s0",
+                        help="MobileCLIP model name: mobileclip_s0, mobileclip_s1, mobileclip_s2, mobileclip_b (default: mobileclip_s0)")
     parser.add_argument("--pretrained_path", type=str, default=None,
                         help="Path to pretrained model weights")
     parser.add_argument("--window_time", type=int, default=2, help="Window time in seconds (default: 2)")
@@ -123,6 +113,8 @@ def main():
 
     # Initialize extractor
     print(f"Loading MobileCLIP model: {args.model_name}")
+    if args.pretrained_path:
+        print(f"Using pretrained weights from: {args.pretrained_path}")
     extractor = VideoFeatureExtractor(
         model_name=args.model_name,
         pretrained_path=args.pretrained_path,
