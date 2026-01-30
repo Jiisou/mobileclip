@@ -29,7 +29,7 @@ class VideoFeatureExtractor:
 
             self.model, _, self.preprocess = open_clip.create_model_and_transforms(
                 model_name,
-                pretrained=pretrained_path if pretrained_path else "datacompdr",
+                pretrained=pretrained_path if pretrained_path else "dfndr2b",
                 **model_kwargs
             )
 
