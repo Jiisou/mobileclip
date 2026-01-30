@@ -6,22 +6,52 @@ import numpy as np
 from PIL import Image
 from tqdm import tqdm
 import mobileclip
+import open_clip
+from mobileclip.modules.common.mobileone import reparameterize_model
 
 class VideoFeatureExtractor:
     def __init__(self, model_name="mobileclip_s0", pretrained_path=None, device="cuda"):
         self.device = device if torch.cuda.is_available() else "cpu"
         self.model_name = model_name
 
-        # Load MobileCLIP model using mobileclip package
-        # Model names: mobileclip_s0, mobileclip_s1, mobileclip_s2, mobileclip_b
-        if pretrained_path is None:
-            pretrained_path = os.path.expanduser("~/.cache/huggingface/hub/models--apple--MobileCLIP-S0/snapshots/71aa3e13dda93115871afbd017336535ba29886c/mobileclip_s0.pt")
+        # Determine if this is MobileCLIP v1 or v2
+        is_mobileclip_v2 = model_name.startswith("MobileCLIP2-")
 
-        self.model, _, self.preprocess = mobileclip.create_model_and_transforms(
-            model_name,
-            pretrained=pretrained_path,
-            device=self.device
-        )
+        if is_mobileclip_v2:
+            # Load MobileCLIP2 using open_clip
+            # Model names: MobileCLIP2-S0, MobileCLIP2-S2, MobileCLIP2-S3, MobileCLIP2-S4, MobileCLIP2-B, MobileCLIP2-L-14
+            print(f"Loading MobileCLIP2 model: {model_name}")
+
+            # Set model kwargs based on model name
+            model_kwargs = {}
+            if not (model_name.endswith("S3") or model_name.endswith("S4") or model_name.endswith("L-14")):
+                model_kwargs = {"image_mean": (0, 0, 0), "image_std": (1, 1, 1)}
+
+            self.model, _, self.preprocess = open_clip.create_model_and_transforms(
+                model_name,
+                pretrained=pretrained_path if pretrained_path else "datacompdr",
+                **model_kwargs
+            )
+
+            # Model needs to be in eval mode for inference
+            self.model.eval()
+
+            # Reparameterize for better performance
+            self.model = reparameterize_model(self.model)
+            self.model = self.model.to(self.device)
+        else:
+            # Load MobileCLIP v1 using mobileclip package
+            # Model names: mobileclip_s0, mobileclip_s1, mobileclip_s2, mobileclip_b
+            print(f"Loading MobileCLIP v1 model: {model_name}")
+
+            if pretrained_path is None and model_name == "mobileclip_s0":
+                pretrained_path = os.path.expanduser("~/.cache/huggingface/hub/models--apple--MobileCLIP-S0/snapshots/71aa3e13dda93115871afbd017336535ba29886c/mobileclip_s0.pt")
+
+            self.model, _, self.preprocess = mobileclip.create_model_and_transforms(
+                model_name,
+                pretrained=pretrained_path,
+                device=self.device
+            )
 
     @torch.no_grad()
     def extract_window_features(self, frames):
@@ -93,11 +123,14 @@ def main():
     parser.add_argument("--video_dir", type=str, help="Directory containing videos (recursive)")
     parser.add_argument("--output_dir", type=str, required=True, help="Directory to save .npy features")
     parser.add_argument("--model_name", type=str, default="mobileclip_s0",
-                        help="MobileCLIP model name: mobileclip_s0, mobileclip_s1, mobileclip_s2, mobileclip_b (default: mobileclip_s0)")
+                        help="MobileCLIP model name. "
+                             "v1 models: mobileclip_s0, mobileclip_s1, mobileclip_s2, mobileclip_b | "
+                             "v2 models: MobileCLIP2-S0, MobileCLIP2-S2, MobileCLIP2-S3, MobileCLIP2-S4, MobileCLIP2-B, MobileCLIP2-L-14 "
+                             "(default: mobileclip_s0)")
     parser.add_argument("--pretrained_path", type=str, default=None,
                         help="Path to pretrained model weights")
     parser.add_argument("--window_time", type=int, default=2, help="Window time in seconds (default: 2)")
-    parser.add_argument("--num_frames", type=int, default=16, help="Number of frames per window (default: 16)")
+    parser.add_argument("--num_frames", type=int, default=8, help="Number of frames per window (default: 8)")
     parser.add_argument("--device", type=str, default="cuda", help="Device (cuda/cpu)")
     parser.add_argument("--video_ext", type=str, default=".mp4", help="Video file extension (default: .mp4)")
     args = parser.parse_args()
