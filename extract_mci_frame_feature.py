@@ -16,7 +16,10 @@ Usage
 python extract_mci_frame_feature.py --video input.mp4 --output_dir ./features
 
 * Directory of videos
-python extract_mci_frame_feature.py --video_dir ./videos --output_dir ./features
+CUDA_VISIBLE_DEVICES=0 python extract_mci_frame_feature.py \
+    --video_dir /home/intern02/DB/ETRI/download_2026-01-28_17-40-42/RGB_IR/사람구간/사람구간 \
+    --output_dir /home/intern02/DB/ETRI/Features/MCi-S0-6 \
+    --include_str "_RGB_"
 
 * Custom sampling rate and model
 python extract_mci_frame_feature.py --video input.mp4 --output_dir ./features \
@@ -154,6 +157,7 @@ def main():
     parser.add_argument("--batch_size", type=int, default=32,
                         help="Batch size for feature extraction (default: 32)")
     parser.add_argument("--device", type=str, default="cuda", help="Device (cuda/cpu)")
+    parser.add_argument("--include_str", type=str, default=None, help="Include video files only which name has specific string (e.g., *_RGB_*)")
     parser.add_argument("--video_ext", type=str, default=".mp4", help="Video file extension (default: .mp4)")
     args = parser.parse_args()
 
@@ -185,6 +189,10 @@ def main():
         for root, dirs, files in os.walk(args.video_dir):
             for f in files:
                 if f.endswith(args.video_ext):
+                    # Check whether specific string in file name (filtering)
+                    if args.include_str and args.include_str not in f:
+                        continue
+
                     video_path = os.path.join(root, f)
                     rel_path = os.path.relpath(video_path, args.video_dir)
                     rel_npy = os.path.splitext(rel_path)[0] + ".npy"
