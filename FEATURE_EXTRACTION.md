@@ -1,6 +1,9 @@
 ```
-python extract_mci_feature.py --video_dir /path/to/UCF_Crimes/Videos/train --output_dir /path/to/UCF_Crimes/Features/MCi0-SW --num_frames 8
+CUDA_VISIBLE_DEVICES=0 python extract_mci_feature.py --video_dir /mnt/sdc/intern02/DB/Videos/train --output_dir /mnt/sdc/intern02/DB/Features/MCi0-SW --num_frames 8
 ```
+
+- **Additional setup**
+  - opencv-python 
 
 ### Arguments
 - `--video`: Process a single video file
